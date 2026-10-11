@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#1b1530">
+  <title>Mon compagnon</title>
+  <style>
+    :root {
+      --fond-haut: #2c2350;
+      --fond-bas: #0e0b1c;
+      --texte: #f1ecff;
+      --texte-doux: #b9b0d6;
+      --accent: #ffb86b;
+      --erreur: #ff9b9b;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body {
+      background: radial-gradient(120% 80% at 50% 25%, var(--fond-haut), var(--fond-bas));
+      color: var(--texte);
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+    }
+    canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
+
+    #chargement {
+      position: fixed; inset: 0;
+      display: grid; place-items: center;
+      padding: 16px; text-align: center;
+      transition: opacity .6s;
+    }
+    #chargement.cache { opacity: 0; pointer-events: none; }
+    #message { font-size: 17px; }
+    #message.erreur { color: var(--erreur); line-height: 1.5; }
+    .barre {
+      width: min(240px, 70vw); height: 6px; margin: 14px auto 0;
+      border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden;
+    }
+    #progression { height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
+
+    #astuce {
+      position: fixed; left: 16px; right: 16px;
+      bottom: calc(24px + env(safe-area-inset-bottom));
+      text-align: center; font-size: 15px; color: var(--texte-doux);
+      opacity: 0; transition: opacity 1s; pointer-events: none;
+      text-shadow: 0 1px 6px rgba(0, 0, 0, .8);
+    }
+    #astuce.visible { opacity: 1; }
+  </style>
+</head>
+<body>
+  <div id="chargement">
+    <div>
+      <div id="message">Ton compagnon arrive…</div>
+      <div class="barre"><div id="progression"></div></div>
+    </div>
+  </div>
+  <div id="astuce">Touche l'écran et déplace ton doigt : il te suit du regard</div>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+        "@pixiv/three-vrm": "https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@3.5.5/lib/three-vrm.module.min.js"
+      }
+    }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+    import { VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
+
+    // ================= RÉGLAGES =================
+    // Modèle exemple temporaire. Quand tu auras ton perso :
+    // mets ton fichier .vrm à côté de cette page et remplace par './mon-perso.vrm'
+    const MODELE_URL = 'https://raw.githubusercontent.com/pixiv/three-vrm/v3.5.5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm';
+
+    // ================= SCÈNE =================
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // limite pour les téléphones
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
+
+    const lumiere = new THREE.DirectionalLight(0xffffff, Math.PI);
+    lumiere.position.set(1, 1.5, 2).normalize();
+    scene.add(lumiere);
+    scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+
+    // Point que l'avatar regarde (par défaut : toi, donc la caméra)
+    const cible = new THREE.Object3D();
+    scene.add(cible);
+
+    let vrm = null;
+    let hauteurTete = 1.4; // corrigée après chargement du modèle
+
+    // Cadrage : buste entier visible, que le téléphone soit en portrait ou en paysage
+    function cadrer() {
+      const ratio = window.innerWidth / window.innerHeight;
+      camera.aspect = ratio;
+      const tan = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+      const hauteurVue = Math.max(0.95, 0.55 / ratio);
+      const distance = hauteurVue / (2 * tan);
+      const centreY = hauteurTete + 0.35 - hauteurVue / 2; // marge pour le haut de la tête et les cheveux
+      camera.position.set(0, centreY, distance);
+      camera.lookAt(0, centreY, 0);
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    cadrer();
+    window.addEventListener('resize', cadrer);
+
+    // ================= CHARGEMENT =================
+    const elChargement = document.getElementById('chargement');
+    const elMessage = document.getElementById('message');
+    const elProgression = document.getElementById('progression');
+    const elAstuce = document.getElementById('astuce');
+
+    const loader = new GLTFLoader();
+    loader.crossOrigin = 'anonymous';
+    loader.register((parser) => new VRMLoaderPlugin(parser));
+
+    loader.load(
+      MODELE_URL,
+      (gltf) => {
+        vrm = gltf.userData.vrm;
+
+        // Optimisations recommandées par three-vrm
+        VRMUtils.removeUnnecessaryVertices(gltf.scene);
+        VRMUtils.combineSkeletons(gltf.scene);
+        VRMUtils.combineMorphs(vrm);
+        // Les anciens modèles VRM 0.x regardent dans l'autre sens : on les retourne
+        VRMUtils.rotateVRM0(vrm);
+        vrm.scene.traverse((obj) => { obj.frustumCulled = false; });
+
+        scene.add(vrm.scene);
+        if (vrm.lookAt) vrm.lookAt.target = cible;
+
+        poseDeRepos();
+        vrm.update(0);
+        vrm.scene.updateMatrixWorld(true);
+
+        // On recadre sur la vraie hauteur de la tête de ce modèle
+        const tete = vrm.humanoid.getRawBoneNode('head');
+        if (tete) hauteurTete = tete.getWorldPosition(new THREE.Vector3()).y;
+        cadrer();
+
+        elChargement.classList.add('cache');
+        elAstuce.classList.add('visible');
+        setTimeout(() => elAstuce.classList.remove('visible'), 6000);
+      },
+      (p) => {
+        if (p.total) elProgression.style.width = Math.round((p.loaded / p.total) * 100) + '%';
+      },
+      (erreur) => {
+        console.error(erreur);
+        elMessage.classList.add('erreur');
+        elMessage.textContent = "Impossible de charger le modèle. Vérifie ta connexion ou l'adresse du fichier .vrm.";
+      }
+    );
+
+    // ================= POSE ET ANIMATIONS =================
+    // Certains os sont facultatifs selon les modèles : on évite de planter s'ils manquent
+    const osFactice = new THREE.Object3D();
+    const os = (nom) => vrm.humanoid.getNormalizedBoneNode(nom) ?? osFactice;
+
+    // Le modèle arrive bras écartés (pose en T) : on baisse les bras
+    function poseDeRepos() {
+      os('leftUpperArm').rotation.z = -1.3;
+      os('rightUpperArm').rotation.z = 1.3;
+      os('leftLowerArm').rotation.z = -0.15;
+      os('rightLowerArm').rotation.z = 0.15;
+    }
+
+    // Clignement des yeux, à intervalles irréguliers
+    let prochainClignement = 1.5;
+    let debutClignement = -1;
+    function clignement(t) {
+      let valeur = 0;
+      if (debutClignement < 0 && t >= prochainClignement) debutClignement = t;
+      if (debutClignement >= 0) {
+        const p = (t - debutClignement) / 0.16; // durée d'un clignement : 0,16 s
+        if (p >= 1) {
+          debutClignement = -1;
+          // parfois un double clignement, sinon une pause de 2 à 6 s
+          prochainClignement = t + (Math.random() < 0.2 ? 0.25 : 2 + Math.random() * 4);
+        } else {
+          valeur = Math.sin(p * Math.PI);
+        }
+      }
+      vrm.expressionManager?.setValue('blink', valeur);
+    }
+
+    // Respiration et petits mouvements de tête
+    const regard = new THREE.Vector2(0, 0);       // position du doigt (-1..1)
+    const regardLisse = new THREE.Vector2(0, 0);  // version adoucie
+    function vivant(t) {
+      const souffle = Math.sin(t * 1.6);
+      os('spine').rotation.x = souffle * 0.015;
+      os('chest').rotation.x = souffle * 0.02;
+      os('leftUpperArm').rotation.z = -1.3 - souffle * 0.02;
+      os('rightUpperArm').rotation.z = 1.3 + souffle * 0.02;
+
+      regardLisse.lerp(regard, 0.08);
+      const cou = os('neck');
+      cou.rotation.y = Math.sin(t * 0.5) * 0.05 + Math.sin(t * 0.23) * 0.03 + regardLisse.x * 0.35;
+      cou.rotation.x = Math.sin(t * 0.31) * 0.02 - regardLisse.y * 0.2;
+      cou.rotation.z = Math.sin(t * 0.37) * 0.03;
+    }
+
+    // ================= INTERACTION =================
+    let dernierToucher = -10;
+    function suivreDoigt(e) {
+      regard.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
+      dernierToucher = horloge.elapsedTime;
+      elAstuce.classList.remove('visible');
+    }
+    window.addEventListener('pointerdown', suivreDoigt);
+    window.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'mouse') suivreDoigt(e); });
+
+    // ================= BOUCLE =================
+    const horloge = new THREE.Clock();
+    renderer.setAnimationLoop(() => {
+      const delta = Math.min(horloge.getDelta(), 1 / 20); // évite que les cheveux s'affolent après une pause
+      const t = horloge.elapsedTime;
+
+      if (vrm) {
+        // Sans toucher depuis 2 s, il revient te regarder
+        if (t - dernierToucher > 2) regard.set(0, 0);
+
+        cible.position.set(
+          camera.position.x + regardLisse.x * 1.2,
+          camera.position.y + regardLisse.y * 0.8,
+          camera.position.z
+        );
+
+        vivant(t);
+        clignement(t);
+        vrm.update(delta);
+      }
+      renderer.render(scene, camera);
+    });
+  </script>
+</body>
+</html>
