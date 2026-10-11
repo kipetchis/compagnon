@@ -12,7 +12,11 @@
       --texte: #f1ecff;
       --texte-doux: #b9b0d6;
       --accent: #ffb86b;
+      --accent-texte: #2a1a05;
+      --ecoute: #ff6b8a;
       --erreur: #ff9b9b;
+      --verre: rgba(20, 15, 40, .72);
+      --bord: rgba(255, 255, 255, .14);
     }
     * { box-sizing: border-box; }
     html, body { margin: 0; height: 100%; overflow: hidden; }
@@ -26,8 +30,9 @@
     }
     canvas { display: block; position: fixed; inset: 0; width: 100%; height: 100%; }
 
+    /* ----- Chargement ----- */
     #chargement {
-      position: fixed; inset: 0;
+      position: fixed; inset: 0; z-index: 10;
       display: grid; place-items: center;
       padding: 16px; text-align: center;
       transition: opacity .6s;
@@ -35,30 +40,94 @@
     #chargement.cache { opacity: 0; pointer-events: none; }
     #message { font-size: 17px; }
     #message.erreur { color: var(--erreur); line-height: 1.5; }
-    .barre {
+    .barre-chargement {
       width: min(240px, 70vw); height: 6px; margin: 14px auto 0;
       border-radius: 3px; background: rgba(255, 255, 255, .12); overflow: hidden;
     }
     #progression { height: 100%; width: 0%; background: var(--accent); transition: width .2s; }
 
-    #astuce {
+    /* ----- Bulle (sous-titres et petits messages) ----- */
+    #bulle {
       position: fixed; left: 16px; right: 16px;
-      bottom: calc(24px + env(safe-area-inset-bottom));
-      text-align: center; font-size: 15px; color: var(--texte-doux);
-      opacity: 0; transition: opacity 1s; pointer-events: none;
-      text-shadow: 0 1px 6px rgba(0, 0, 0, .8);
+      bottom: calc(92px + env(safe-area-inset-bottom));
+      max-width: 560px; margin: 0 auto;
+      padding: 12px 16px; border-radius: 18px;
+      background: var(--verre); border: 1px solid var(--bord);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      font-size: 16px; line-height: 1.45; text-align: center;
+      opacity: 0; transform: translateY(8px);
+      transition: opacity .35s, transform .35s;
+      pointer-events: none;
     }
-    #astuce.visible { opacity: 1; }
+    #bulle.visible { opacity: 1; transform: none; }
+    #bulle.info { color: var(--texte-doux); }
+
+    /* ----- Barre du bas : saisie + micro ----- */
+    #barre {
+      position: fixed; left: 0; right: 0; bottom: 0;
+      display: flex; gap: 10px; align-items: center;
+      padding: 12px 16px calc(12px + env(safe-area-inset-bottom));
+      opacity: 0; transition: opacity .6s;
+    }
+    #barre.visible { opacity: 1; }
+    #formulaire {
+      flex: 1; display: flex; align-items: center; min-width: 0;
+      background: var(--verre); border: 1px solid var(--bord); border-radius: 26px;
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      padding: 4px 4px 4px 16px;
+    }
+    #champ {
+      flex: 1; min-width: 0; height: 44px;
+      background: transparent; border: 0; outline: none;
+      color: var(--texte); font: inherit; font-size: 16px;
+      -webkit-user-select: text; user-select: text;
+    }
+    #champ::placeholder { color: var(--texte-doux); }
+    button {
+      flex: none; display: grid; place-items: center;
+      border: 0; border-radius: 50%; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    button svg { width: 22px; height: 22px; }
+    #envoyer { width: 44px; height: 44px; background: transparent; color: var(--accent); }
+    #envoyer:disabled { color: var(--texte-doux); opacity: .5; }
+    #micro {
+      width: 56px; height: 56px;
+      background: var(--accent); color: var(--accent-texte);
+      box-shadow: 0 4px 16px rgba(0, 0, 0, .35);
+      transition: background .2s, transform .2s;
+    }
+    #micro svg { width: 26px; height: 26px; }
+    #micro:active { transform: scale(.94); }
+    #micro.ecoute { background: var(--ecoute); animation: pulse 1.2s ease-in-out infinite; }
+    #micro[hidden] { display: none; }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 138, .55); }
+      50% { box-shadow: 0 0 0 12px rgba(255, 107, 138, 0); }
+    }
   </style>
 </head>
 <body>
   <div id="chargement">
     <div>
       <div id="message">Ton compagnon arrive…</div>
-      <div class="barre"><div id="progression"></div></div>
+      <div class="barre-chargement"><div id="progression"></div></div>
     </div>
   </div>
-  <div id="astuce">Touche l'écran et déplace ton doigt : il te suit du regard</div>
+
+  <div id="bulle"></div>
+
+  <div id="barre">
+    <form id="formulaire" autocomplete="off">
+      <input id="champ" type="text" enterkeyhint="send" placeholder="Écris-moi quelque chose…">
+      <button id="envoyer" type="submit" aria-label="Envoyer" disabled>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M3.4 20.4 21 12 3.4 3.6 3.4 10l12.6 2-12.6 2z"/></svg>
+      </button>
+    </form>
+    <button id="micro" type="button" aria-label="Parler">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    </button>
+  </div>
 
   <script type="importmap">
     {
@@ -80,11 +149,15 @@
     // mets ton fichier .vrm à côté de cette page et remplace par './mon-perso.vrm'
     const MODELE_URL = 'https://raw.githubusercontent.com/pixiv/three-vrm/v3.5.5/packages/three-vrm/examples/models/VRM1_Constraint_Twist_Sample.vrm';
 
+    // Voix : hauteur (0,5 grave → 2 aigu) et vitesse (0,5 lent → 2 rapide)
+    const VOIX_HAUTEUR = 1.1;
+    const VOIX_VITESSE = 1.0;
+
     // ================= SCÈNE =================
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // limite pour les téléphones
     renderer.setSize(window.innerWidth, window.innerHeight);
-    document.body.appendChild(renderer.domElement);
+    document.body.prepend(renderer.domElement);
 
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, window.innerWidth / window.innerHeight, 0.1, 20);
@@ -117,12 +190,31 @@
     cadrer();
     window.addEventListener('resize', cadrer);
 
-    // ================= CHARGEMENT =================
+    // ================= INTERFACE =================
     const elChargement = document.getElementById('chargement');
     const elMessage = document.getElementById('message');
     const elProgression = document.getElementById('progression');
-    const elAstuce = document.getElementById('astuce');
+    const elBulle = document.getElementById('bulle');
+    const elBarre = document.getElementById('barre');
+    const elFormulaire = document.getElementById('formulaire');
+    const elChamp = document.getElementById('champ');
+    const elEnvoyer = document.getElementById('envoyer');
+    const elMicro = document.getElementById('micro');
 
+    let minuterieBulle = null;
+    function afficherBulle(texte, { info = false, duree = 0 } = {}) {
+      clearTimeout(minuterieBulle);
+      elBulle.textContent = texte;
+      elBulle.classList.toggle('info', info);
+      elBulle.classList.add('visible');
+      if (duree) minuterieBulle = setTimeout(masquerBulle, duree);
+    }
+    function masquerBulle(delai = 0) {
+      clearTimeout(minuterieBulle);
+      minuterieBulle = setTimeout(() => elBulle.classList.remove('visible'), delai);
+    }
+
+    // ================= CHARGEMENT DU MODÈLE =================
     const loader = new GLTFLoader();
     loader.crossOrigin = 'anonymous';
     loader.register((parser) => new VRMLoaderPlugin(parser));
@@ -153,8 +245,10 @@
         cadrer();
 
         elChargement.classList.add('cache');
-        elAstuce.classList.add('visible');
-        setTimeout(() => elAstuce.classList.remove('visible'), 6000);
+        elBarre.classList.add('visible');
+        afficherBulle(reconnaissance
+          ? 'Touche le micro pour me parler, ou écris-moi.'
+          : 'Écris-moi quelque chose !', { info: true, duree: 6000 });
       },
       (p) => {
         if (p.total) elProgression.style.width = Math.round((p.loaded / p.total) * 100) + '%';
@@ -179,6 +273,9 @@
       os('rightLowerArm').rotation.z = 0.15;
     }
 
+    // État de l'avatar : 'repos', 'ecoute', 'reflexion' ou 'parole'
+    let etat = 'repos';
+
     // Clignement des yeux, à intervalles irréguliers
     let prochainClignement = 1.5;
     let debutClignement = -1;
@@ -198,9 +295,35 @@
       vrm.expressionManager?.setValue('blink', valeur);
     }
 
+    // Mouvements de la bouche pendant qu'il parle (syllabes simulées)
+    const VOYELLES = ['aa', 'ih', 'ou', 'ee', 'oh'];
+    const ouvertureVoyelles = { aa: 0, ih: 0, ou: 0, ee: 0, oh: 0 };
+    let bouchePrete = false;   // vrai quand la voix est réellement en train de sortir
+    let voyelleActive = 'aa';
+    let ouvertureCible = 0;
+    let prochaineSyllabe = 0;
+    function bouche(t, delta) {
+      if (bouchePrete && t >= prochaineSyllabe) {
+        voyelleActive = VOYELLES[Math.floor(Math.random() * VOYELLES.length)];
+        ouvertureCible = Math.random() < 0.15 ? 0.05 : 0.35 + Math.random() * 0.5; // parfois une petite pause
+        prochaineSyllabe = t + 0.08 + Math.random() * 0.1;
+      }
+      const vitesse = Math.min(1, delta * 18);
+      for (const v of VOYELLES) {
+        const viser = bouchePrete && v === voyelleActive ? ouvertureCible : 0;
+        ouvertureVoyelles[v] += (viser - ouvertureVoyelles[v]) * vitesse;
+        vrm.expressionManager?.setValue(v, ouvertureVoyelles[v]);
+      }
+    }
+
+    // Petit hochement de tête quand tu as fini de parler
+    let debutHochement = -10;
+    function hocher() { debutHochement = horloge.elapsedTime; }
+
     // Respiration et petits mouvements de tête
     const regard = new THREE.Vector2(0, 0);       // position du doigt (-1..1)
     const regardLisse = new THREE.Vector2(0, 0);  // version adoucie
+    let inclinaison = 0;                          // tête penchée quand il écoute
     function vivant(t) {
       const souffle = Math.sin(t * 1.6);
       os('spine').rotation.x = souffle * 0.015;
@@ -209,21 +332,193 @@
       os('rightUpperArm').rotation.z = 1.3 + souffle * 0.02;
 
       regardLisse.lerp(regard, 0.08);
+      inclinaison += ((etat === 'ecoute' ? 0.12 : 0) - inclinaison) * 0.06;
+
+      const dt = t - debutHochement;
+      const hochement = dt < 0.7 ? Math.sin((dt / 0.7) * Math.PI * 2) * 0.12 * (1 - dt / 0.7) : 0;
+
       const cou = os('neck');
       cou.rotation.y = Math.sin(t * 0.5) * 0.05 + Math.sin(t * 0.23) * 0.03 + regardLisse.x * 0.35;
-      cou.rotation.x = Math.sin(t * 0.31) * 0.02 - regardLisse.y * 0.2;
-      cou.rotation.z = Math.sin(t * 0.37) * 0.03;
+      cou.rotation.x = Math.sin(t * 0.31) * 0.02 - regardLisse.y * 0.2 + hochement;
+      cou.rotation.z = Math.sin(t * 0.37) * 0.03 + inclinaison;
     }
 
-    // ================= INTERACTION =================
+    // ================= REGARD QUI SUIT LE DOIGT =================
     let dernierToucher = -10;
     function suivreDoigt(e) {
+      if (e.target.closest('#barre')) return; // pas quand on touche les boutons
       regard.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
       dernierToucher = horloge.elapsedTime;
-      elAstuce.classList.remove('visible');
     }
     window.addEventListener('pointerdown', suivreDoigt);
     window.addEventListener('pointermove', (e) => { if (e.buttons || e.pointerType === 'mouse') suivreDoigt(e); });
+
+    // ================= LA VOIX DE L'AVATAR (synthèse vocale) =================
+    const synthese = window.speechSynthesis;
+    let voixFr = null;
+    function choisirVoix() {
+      if (!synthese) return;
+      const voix = synthese.getVoices();
+      voixFr = voix.find((v) => v.lang === 'fr-FR') || voix.find((v) => v.lang.startsWith('fr')) || null;
+    }
+    choisirVoix();
+    synthese?.addEventListener?.('voiceschanged', choisirVoix);
+
+    // Fait parler l'avatar ; la promesse se termine quand il a fini
+    function parler(texte) {
+      return new Promise((resolve) => {
+        afficherBulle(texte);
+        etat = 'parole';
+
+        let termine = false;
+        const fin = () => {
+          if (termine) return;
+          termine = true;
+          clearTimeout(secours);
+          bouchePrete = false;
+          if (etat === 'parole') { // sauf si tu lui as coupé la parole pour lui reparler
+            etat = 'repos';
+            masquerBulle(2500);
+          }
+          resolve();
+        };
+        // Sécurité : certains téléphones oublient de signaler la fin
+        const secours = setTimeout(fin, texte.length * 90 + 4000);
+
+        if (!synthese) { setTimeout(fin, texte.length * 60 + 1000); return; }
+
+        synthese.cancel();
+        // Phrase par phrase : évite que Chrome coupe les textes longs
+        const phrases = texte.match(/[^.!?…]+[.!?…]*/g) || [texte];
+        let restantes = phrases.length;
+        for (const phrase of phrases) {
+          const enonce = new SpeechSynthesisUtterance(phrase.trim());
+          enonce.lang = 'fr-FR';
+          if (voixFr) enonce.voice = voixFr;
+          enonce.pitch = VOIX_HAUTEUR;
+          enonce.rate = VOIX_VITESSE;
+          enonce.onstart = () => { bouchePrete = true; };
+          enonce.onend = enonce.onerror = () => {
+            bouchePrete = false; // courte pause entre deux phrases
+            restantes -= 1;
+            if (restantes <= 0) fin();
+          };
+          synthese.speak(enonce);
+        }
+      });
+    }
+
+    // ================= LE « CERVEAU » =================
+    // ÉTAPE 3 : c'est ici qu'on branchera la vraie intelligence (Gemini).
+    // Pour l'instant, il se contente de répéter ce que tu lui dis.
+    let premiereReponse = true;
+    async function obtenirReponse(texte) {
+      await new Promise((r) => setTimeout(r, 500)); // petit temps de « réflexion »
+      let reponse = `Tu m'as dit : ${texte}`;
+      if (!/[.!?…]$/.test(reponse)) reponse += '.';
+      if (premiereReponse) {
+        reponse += " Pour l'instant je sais seulement répéter, mais bientôt je pourrai vraiment te répondre !";
+        premiereReponse = false;
+      }
+      return reponse;
+    }
+
+    // ================= ENVOI D'UN MESSAGE =================
+    let occupe = false;
+    async function envoyer(texte) {
+      texte = texte.trim();
+      if (!texte || occupe) return;
+      occupe = true;
+      elChamp.value = '';
+      elEnvoyer.disabled = true;
+      elChamp.blur(); // ferme le clavier pour bien voir l'avatar
+      hocher();
+
+      etat = 'reflexion';
+      afficherBulle('…', { info: true });
+      try {
+        const reponse = await obtenirReponse(texte);
+        await parler(reponse);
+      } catch (erreur) {
+        console.error(erreur);
+        afficherBulle("Oups, je n'ai pas réussi à répondre.", { info: true, duree: 4000 });
+        etat = 'repos';
+      }
+      occupe = false;
+    }
+
+    elChamp.addEventListener('input', () => { elEnvoyer.disabled = !elChamp.value.trim(); });
+    elFormulaire.addEventListener('submit', (e) => {
+      e.preventDefault();
+      envoyer(elChamp.value);
+    });
+
+    // ================= TES OREILLES À LUI (reconnaissance vocale) =================
+    const Reconnaissance = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let reconnaissance = null;
+    let ecoute = false;
+    let dejaEnvoye = false;
+
+    if (Reconnaissance) {
+      reconnaissance = new Reconnaissance();
+      reconnaissance.lang = 'fr-FR';
+      reconnaissance.interimResults = true; // affiche le texte pendant que tu parles
+      reconnaissance.continuous = false;    // s'arrête tout seul quand tu te tais
+
+      reconnaissance.onresult = (e) => {
+        let texte = '';
+        let final = false;
+        for (const resultat of e.results) {
+          texte += resultat[0].transcript;
+          if (resultat.isFinal) final = true;
+        }
+        elChamp.value = texte;
+        if (final && !dejaEnvoye) {
+          dejaEnvoye = true;
+          envoyer(texte);
+        }
+      };
+      reconnaissance.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          afficherBulle("Autorise l'accès au micro pour pouvoir me parler.", { info: true, duree: 5000 });
+        } else if (e.error === 'no-speech') {
+          afficherBulle("Je n'ai rien entendu… Réessaie !", { info: true, duree: 3000 });
+        } else if (e.error !== 'aborted') {
+          afficherBulle('Le micro a eu un souci (' + e.error + ').', { info: true, duree: 4000 });
+        }
+      };
+      reconnaissance.onend = () => {
+        ecoute = false;
+        elMicro.classList.remove('ecoute');
+        if (etat === 'ecoute') etat = 'repos';
+        // Si tu as parlé mais que le téléphone n'a pas marqué la phrase comme finie
+        if (!dejaEnvoye && elChamp.value.trim()) {
+          dejaEnvoye = true;
+          envoyer(elChamp.value);
+        }
+      };
+    } else {
+      elMicro.hidden = true; // navigateur sans reconnaissance vocale : on garde le clavier
+    }
+
+    elMicro.addEventListener('click', () => {
+      if (!reconnaissance) return;
+      if (ecoute) { reconnaissance.stop(); return; }
+      if (occupe && etat !== 'parole') return; // il est en train de réfléchir
+      synthese?.cancel(); // tu peux lui couper la parole
+      dejaEnvoye = false;
+      elChamp.value = '';
+      try {
+        reconnaissance.start();
+        ecoute = true;
+        etat = 'ecoute';
+        regard.set(0, 0);
+        elMicro.classList.add('ecoute');
+        afficherBulle('Je t\'écoute…', { info: true });
+      } catch (erreur) {
+        console.error(erreur);
+      }
+    });
 
     // ================= BOUCLE =================
     const horloge = new THREE.Clock();
@@ -232,8 +527,11 @@
       const t = horloge.elapsedTime;
 
       if (vrm) {
-        // Sans toucher depuis 2 s, il revient te regarder
-        if (t - dernierToucher > 2) regard.set(0, 0);
+        if (etat === 'reflexion') {
+          regard.set(-0.35, 0.45); // il lève les yeux en réfléchissant
+        } else if (t - dernierToucher > 2) {
+          regard.set(0, 0);        // sinon il revient te regarder
+        }
 
         cible.position.set(
           camera.position.x + regardLisse.x * 1.2,
@@ -243,6 +541,7 @@
 
         vivant(t);
         clignement(t);
+        bouche(t, delta);
         vrm.update(delta);
       }
       renderer.render(scene, camera);
