@@ -153,6 +153,31 @@
     const VOIX_HAUTEUR = 1.1;
     const VOIX_VITESSE = 1.0;
 
+    // Adresse de ton Worker Cloudflare (le « cerveau »)
+    // Si tu as nommé ton Worker autrement que « compagnon-cerveau », corrige cette ligne
+    const CERVEAU_URL = 'https://compagnon-cerveau.kip3tchis.workers.dev';
+
+    // Le personnage
+    const NOM_AVATAR = 'Lumi';
+    const TON_PRENOM = 'Jonathan';
+
+    // Sa personnalité : tu peux réécrire librement ce texte
+    function personnalite() {
+      const maintenant = new Date();
+      const date = maintenant.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+      const heure = maintenant.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      return `Tu t'appelles ${NOM_AVATAR}. Tu es un personnage virtuel en 3D qui vit dans le téléphone de ${TON_PRENOM}, et tu discutes avec lui à voix haute.
+Ton caractère : chaleureux, curieux, plein d'humour, un brin taquin. Tu t'intéresses sincèrement à ce qu'il te raconte et tu te souviens de ce qu'il t'a dit plus tôt dans la conversation.
+Nous sommes le ${date}, il est ${heure}.
+
+Règles importantes :
+- Tes réponses sont lues à voix haute : parle en français naturel, comme à l'oral, en une à trois phrases courtes.
+- Jamais d'émojis, de listes, de titres, d'astérisques ni de mise en forme.
+- Relance parfois la conversation avec une question.
+- Commence TOUJOURS ta réponse par une émotion entre crochets, une seule, parmi : [neutre] [joie] [triste] [surpris] [fache] [detendu].
+Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
+    }
+
     // ================= SCÈNE =================
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2)); // limite pour les téléphones
@@ -246,9 +271,11 @@
 
         elChargement.classList.add('cache');
         elBarre.classList.add('visible');
-        afficherBulle(reconnaissance
-          ? 'Touche le micro pour me parler, ou écris-moi.'
-          : 'Écris-moi quelque chose !', { info: true, duree: 6000 });
+        afficherBulle(!CERVEAU_PRET
+          ? "Il manque l'adresse du Worker dans CERVEAU_URL."
+          : reconnaissance
+            ? 'Touche le micro pour me parler, ou écris-moi.'
+            : 'Écris-moi quelque chose !', { info: true, duree: 6000 });
       },
       (p) => {
         if (p.total) elProgression.style.width = Math.round((p.loaded / p.total) * 100) + '%';
@@ -313,6 +340,25 @@
         const viser = bouchePrete && v === voyelleActive ? ouvertureCible : 0;
         ouvertureVoyelles[v] += (viser - ouvertureVoyelles[v]) * vitesse;
         vrm.expressionManager?.setValue(v, ouvertureVoyelles[v]);
+      }
+    }
+
+    // Émotions sur le visage (choisies par le cerveau au début de chaque réponse)
+    const EMOTIONS = { joie: 'happy', triste: 'sad', surpris: 'surprised', fache: 'angry', detendu: 'relaxed' };
+    let emotionActive = null;
+    let emotionValeur = 0;
+    let emotionCible = 0;
+    function montrerEmotion(mot) {
+      const nom = EMOTIONS[mot];
+      if (!nom) { emotionCible = 0; return; } // neutre
+      if (nom !== emotionActive) emotionValeur = 0;
+      emotionActive = nom;
+      emotionCible = 0.6;
+    }
+    function visage(delta) {
+      emotionValeur += (emotionCible - emotionValeur) * Math.min(1, delta * 4);
+      for (const nom of Object.values(EMOTIONS)) {
+        vrm.expressionManager?.setValue(nom, nom === emotionActive ? emotionValeur : 0);
       }
     }
 
@@ -409,18 +455,59 @@
     }
 
     // ================= LE « CERVEAU » =================
-    // ÉTAPE 3 : c'est ici qu'on branchera la vraie intelligence (Gemini).
-    // Pour l'instant, il se contente de répéter ce que tu lui dis.
-    let premiereReponse = true;
+    const CERVEAU_PRET = !CERVEAU_URL.includes('COLLE-ICI');
+    const historique = []; // la conversation en cours : { role: 'toi' | 'avatar', texte }
+
+    // Sépare l'émotion « [joie] » du texte, et retire ce qui ne doit pas être lu à voix haute
+    function decoder(brut) {
+      const trouve = brut.match(/^\s*\[([^\]]+)\]/);
+      const emotion = trouve
+        ? trouve[1].toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim()
+        : 'neutre';
+      const texte = brut
+        .replace(/\[[^\]]*\]/g, ' ')                        // balises d'émotion
+        .replace(/[*_#`~>]/g, '')                           // mise en forme
+        .replace(/\p{Extended_Pictographic}️?/gu, '')  // émojis
+        .replace(/\s+/g, ' ')
+        .trim();
+      return { texte, emotion };
+    }
+
     async function obtenirReponse(texte) {
-      await new Promise((r) => setTimeout(r, 500)); // petit temps de « réflexion »
-      let reponse = `Tu m'as dit : ${texte}`;
-      if (!/[.!?…]$/.test(reponse)) reponse += '.';
-      if (premiereReponse) {
-        reponse += " Pour l'instant je sais seulement répéter, mais bientôt je pourrai vraiment te répondre !";
-        premiereReponse = false;
+      if (!CERVEAU_PRET) {
+        return { texte: "Je n'ai pas encore de cerveau. Colle l'adresse de ton Worker dans CERVEAU_URL, en haut du fichier.", emotion: 'triste' };
       }
-      return reponse;
+      historique.push({ role: 'toi', texte });
+      const controleur = new AbortController();
+      const minuterie = setTimeout(() => controleur.abort(), 30000);
+      try {
+        const r = await fetch(CERVEAU_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ personnalite: personnalite(), messages: historique.slice(-20) }),
+          signal: controleur.signal,
+        });
+        const donnees = await r.json().catch(() => ({}));
+        if (r.status === 429) {
+          historique.pop();
+          return { texte: "J'ai trop parlé aujourd'hui, mon quota gratuit est épuisé. Réessaie un peu plus tard !", emotion: 'triste' };
+        }
+        if (!r.ok || !donnees.texte) {
+          console.error('Réponse du Worker :', r.status, donnees);
+          historique.pop();
+          return { texte: "Oups, mon cerveau a eu un petit bug. Tu peux répéter ?", emotion: 'surpris' };
+        }
+        historique.push({ role: 'avatar', texte: donnees.texte.trim() });
+        if (historique.length > 40) historique.splice(0, historique.length - 40);
+        const reponse = decoder(donnees.texte);
+        return { texte: reponse.texte || '…', emotion: reponse.emotion };
+      } catch (erreur) {
+        console.error(erreur);
+        historique.pop();
+        return { texte: "Je n'arrive pas à joindre mon cerveau. Vérifie ta connexion.", emotion: 'triste' };
+      } finally {
+        clearTimeout(minuterie);
+      }
     }
 
     // ================= ENVOI D'UN MESSAGE =================
@@ -438,7 +525,9 @@
       afficherBulle('…', { info: true });
       try {
         const reponse = await obtenirReponse(texte);
-        await parler(reponse);
+        montrerEmotion(reponse.emotion);
+        await parler(reponse.texte);
+        setTimeout(() => { if (etat !== 'parole') emotionCible = 0; }, 1500); // le visage se détend
       } catch (erreur) {
         console.error(erreur);
         afficherBulle("Oups, je n'ai pas réussi à répondre.", { info: true, duree: 4000 });
@@ -541,6 +630,7 @@
 
         vivant(t);
         clignement(t);
+        visage(delta);
         bouche(t, delta);
         vrm.update(delta);
       }
