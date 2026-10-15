@@ -105,6 +105,71 @@
       0%, 100% { box-shadow: 0 0 0 0 rgba(255, 107, 138, .55); }
       50% { box-shadow: 0 0 0 12px rgba(255, 107, 138, 0); }
     }
+
+    /* ----- Bouton du carnet (en haut à droite) ----- */
+    #ouvrir-carnet {
+      position: fixed; right: 16px; top: calc(12px + env(safe-area-inset-top));
+      width: 44px; height: 44px;
+      background: var(--verre); border: 1px solid var(--bord); color: var(--texte);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      opacity: 0; pointer-events: none; transition: opacity .6s;
+    }
+    #ouvrir-carnet.visible { opacity: 1; pointer-events: auto; }
+
+    /* ----- Petite note « Noté dans mon carnet » ----- */
+    #note {
+      position: fixed; left: 50%; top: calc(18px + env(safe-area-inset-top));
+      transform: translate(-50%, -12px);
+      max-width: calc(100% - 140px);
+      padding: 8px 14px; border-radius: 16px;
+      background: var(--verre); border: 1px solid var(--bord);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      color: var(--accent); font-size: 14px; text-align: center;
+      opacity: 0; transition: opacity .35s, transform .35s; pointer-events: none;
+    }
+    #note.visible { opacity: 1; transform: translate(-50%, 0); }
+
+    /* ----- Le carnet de souvenirs ----- */
+    #carnet {
+      position: fixed; inset: 0; z-index: 20;
+      display: flex; align-items: flex-end; justify-content: center;
+      background: rgba(5, 3, 12, .55);
+      opacity: 0; pointer-events: none; transition: opacity .3s;
+    }
+    #carnet.ouvert { opacity: 1; pointer-events: auto; }
+    .feuille {
+      width: 100%; max-width: 560px; max-height: 78vh;
+      display: flex; flex-direction: column;
+      background: #1c1636; border: 1px solid var(--bord); border-bottom: 0;
+      border-radius: 22px 22px 0 0;
+      padding: 18px 16px calc(16px + env(safe-area-inset-bottom));
+      transform: translateY(30px); transition: transform .3s;
+    }
+    #carnet.ouvert .feuille { transform: none; }
+    .feuille-tete { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+    .feuille-tete h2 { flex: 1; margin: 0; font-size: 19px; font-weight: 600; }
+    #fermer-carnet { width: 40px; height: 40px; background: transparent; color: var(--texte-doux); }
+    .feuille-aide { margin: 0 0 12px; color: var(--texte-doux); font-size: 14px; line-height: 1.4; }
+    #liste-souvenirs {
+      list-style: none; margin: 0; padding: 0;
+      overflow-y: auto; touch-action: pan-y; -webkit-overflow-scrolling: touch;
+      flex: 1; min-height: 60px;
+    }
+    #liste-souvenirs li {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 0 10px 12px; border-bottom: 1px solid var(--bord);
+      font-size: 15px; line-height: 1.4;
+    }
+    #liste-souvenirs li span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+    #liste-souvenirs li button { width: 40px; height: 40px; background: transparent; color: var(--texte-doux); }
+    #liste-souvenirs li.vide { color: var(--texte-doux); border: 0; padding-left: 0; }
+    .feuille-actions { display: flex; gap: 10px; margin-top: 14px; }
+    .feuille-actions button {
+      flex: 1; height: 46px; border-radius: 23px;
+      font: inherit; font-size: 15px; font-weight: 600;
+    }
+    #nouvelle-conversation { background: var(--accent); color: var(--accent-texte); }
+    #tout-oublier { background: transparent; color: var(--erreur); border: 1px solid rgba(255, 155, 155, .4); }
   </style>
 </head>
 <body>
@@ -127,6 +192,29 @@
     <button id="micro" type="button" aria-label="Parler">
       <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
     </button>
+  </div>
+
+  <button id="ouvrir-carnet" type="button" aria-label="Carnet de souvenirs">
+    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm0 2v16h12V4h-2v7l-2.5-1.5L11 11V4H6z"/></svg>
+  </button>
+
+  <div id="note"></div>
+
+  <div id="carnet" aria-hidden="true">
+    <div class="feuille" role="dialog" aria-labelledby="titre-carnet">
+      <div class="feuille-tete">
+        <h2 id="titre-carnet">Carnet de souvenirs</h2>
+        <button id="fermer-carnet" type="button" aria-label="Fermer">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.7 12 12l6.3 6.3-1.4 1.4L10.6 13.4 4.3 19.7l-1.4-1.4L9.2 12 2.9 5.7l1.4-1.4 6.3 6.3 6.3-6.3z"/></svg>
+        </button>
+      </div>
+      <p class="feuille-aide" id="aide-carnet"></p>
+      <ul id="liste-souvenirs"></ul>
+      <div class="feuille-actions">
+        <button id="nouvelle-conversation" type="button">Nouvelle conversation</button>
+        <button id="tout-oublier" type="button">Tout oublier</button>
+      </div>
+    </div>
   </div>
 
   <script type="importmap">
@@ -161,21 +249,52 @@
     const NOM_AVATAR = 'Lumi';
     const TON_PRENOM = 'Jonathan';
 
-    // Sa personnalité : tu peux réécrire librement ce texte
-    function personnalite() {
+    // Au-delà de ce délai sans se parler, il démarre une nouvelle conversation
+    // (il garde quand même son carnet de souvenirs)
+    const DUREE_CONVERSATION_HEURES = 3;
+
+    // Sa personnalité : tu peux réécrire librement la partie « caractère »
+    function personnalite(carnet) {
       const maintenant = new Date();
       const date = maintenant.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
       const heure = maintenant.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      const retrouvailles = ecartAvantConversation !== null
+        ? `\nVotre discussion précédente : ${ilYa(ecartAvantConversation)}.`
+        : '';
+      const notes = carnet.length
+        ? carnet.map((s, i) => `${i + 1}. ${s.texte}`).join('\n')
+        : 'Ton carnet est encore vide : tu ne sais encore presque rien de lui.';
+
       return `Tu t'appelles ${NOM_AVATAR}. Tu es un personnage virtuel en 3D qui vit dans le téléphone de ${TON_PRENOM}, et tu discutes avec lui à voix haute.
-Ton caractère : chaleureux, curieux, plein d'humour, un brin taquin. Tu t'intéresses sincèrement à ce qu'il te raconte et tu te souviens de ce qu'il t'a dit plus tôt dans la conversation.
-Nous sommes le ${date}, il est ${heure}.
+Ton caractère : chaleureux, curieux, plein d'humour, un brin taquin. Tu t'intéresses sincèrement à ce qu'il te raconte.
+Nous sommes le ${date}, il est ${heure}.${retrouvailles}
 
 Règles importantes :
 - Tes réponses sont lues à voix haute : parle en français naturel, comme à l'oral, en une à trois phrases courtes.
 - Jamais d'émojis, de listes, de titres, d'astérisques ni de mise en forme.
 - Relance parfois la conversation avec une question.
 - Commence TOUJOURS ta réponse par une émotion entre crochets, une seule, parmi : [neutre] [joie] [triste] [surpris] [fache] [detendu].
-Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
+Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?
+
+Ta mémoire :
+- Quand ${TON_PRENOM} t'apprend quelque chose de durable sur lui ou sur sa vie (ses proches, ses animaux, ses goûts, ses projets, un événement à venir…), note-le à la toute fin de ta réponse avec une balise [souvenir: phrase courte]. Exemple : [souvenir: Son chat s'appelle Moka]. Pas de balise pour les banalités ni pour ce qui est déjà dans ton carnet.
+- Si une note de ton carnet devient fausse, ou s'il te demande d'oublier quelque chose, efface-la avec [oubli: numéro de la note], et note la version corrigée s'il y en a une.
+- Ces balises ne sont pas lues à voix haute. Ne récite jamais ton carnet : sers-t'en naturellement, comme un ami qui se souvient des choses.
+
+Ton carnet de souvenirs sur ${TON_PRENOM} :
+${notes}`;
+    }
+
+    // « il y a 3 jours », « hier »…
+    function ilYa(ms) {
+      const heures = ms / 3600000;
+      if (heures < 1) return 'il y a quelques minutes';
+      if (heures < 24) return `il y a environ ${Math.round(heures)} heure${Math.round(heures) > 1 ? 's' : ''}`;
+      const jours = Math.round(heures / 24);
+      if (jours < 2) return 'hier';
+      if (jours < 14) return `il y a ${jours} jours`;
+      if (jours < 60) return `il y a ${Math.round(jours / 7)} semaines`;
+      return `il y a ${Math.round(jours / 30)} mois`;
     }
 
     // ================= SCÈNE =================
@@ -271,6 +390,7 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
 
         elChargement.classList.add('cache');
         elBarre.classList.add('visible');
+        document.getElementById('ouvrir-carnet').classList.add('visible');
         afficherBulle(!CERVEAU_PRET
           ? "Il manque l'adresse du Worker dans CERVEAU_URL."
           : reconnaissance
@@ -392,7 +512,7 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
     // ================= REGARD QUI SUIT LE DOIGT =================
     let dernierToucher = -10;
     function suivreDoigt(e) {
-      if (e.target.closest('#barre')) return; // pas quand on touche les boutons
+      if (e.target.closest('#barre, #carnet, #ouvrir-carnet')) return; // pas quand on touche les boutons
       regard.set((e.clientX / window.innerWidth) * 2 - 1, -((e.clientY / window.innerHeight) * 2 - 1));
       dernierToucher = horloge.elapsedTime;
     }
@@ -454,23 +574,73 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
       });
     }
 
+    // ================= LA MÉMOIRE (stockée sur ton téléphone) =================
+    // Toutes les clés commencent par « compagnon_ » : tes autres applis sur
+    // kipetchis.github.io partagent le même stockage, on évite les mélanges.
+    function lire(nom, parDefaut) {
+      try {
+        const valeur = localStorage.getItem('compagnon_' + nom);
+        return valeur ? JSON.parse(valeur) : parDefaut;
+      } catch { return parDefaut; }
+    }
+    function ecrire(nom, valeur) {
+      try { localStorage.setItem('compagnon_' + nom, JSON.stringify(valeur)); } catch { /* stockage indisponible */ }
+    }
+    const sansAccents = (s) => s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim();
+
+    // Le carnet de souvenirs : [{ texte, date }]
+    const MAX_CARNET_CARACTERES = 7000; // au-delà, les plus vieux souvenirs s'effacent
+    let souvenirs = lire('souvenirs', []);
+    if (!Array.isArray(souvenirs)) souvenirs = [];
+    function sauverSouvenirs() { ecrire('souvenirs', souvenirs); }
+    function ajouterSouvenir(texte) {
+      texte = texte.replace(/\s+/g, ' ').trim().replace(/\.$/, '').slice(0, 200);
+      if (texte.length < 3) return false;
+      if (souvenirs.some((s) => sansAccents(s.texte) === sansAccents(texte))) return false;
+      souvenirs.push({ texte, date: Date.now() });
+      while (souvenirs.reduce((n, s) => n + s.texte.length + 6, 0) > MAX_CARNET_CARACTERES) souvenirs.shift();
+      return true;
+    }
+
+    // La conversation en cours : reprise si vous vous êtes parlé récemment
+    const sauvegarde = lire('conversation', null);
+    const historique = []; // { role: 'toi' | 'avatar', texte }
+    let ecartAvantConversation = null; // temps écoulé depuis votre discussion précédente
+    if (sauvegarde && Array.isArray(sauvegarde.messages) && sauvegarde.maj) {
+      const ecart = Date.now() - sauvegarde.maj;
+      if (ecart < DUREE_CONVERSATION_HEURES * 3600000) historique.push(...sauvegarde.messages);
+      else ecartAvantConversation = ecart;
+    }
+    function sauverConversation() {
+      ecrire('conversation', { maj: Date.now(), messages: historique.slice(-20) });
+    }
+
     // ================= LE « CERVEAU » =================
     const CERVEAU_PRET = !CERVEAU_URL.includes('COLLE-ICI');
-    const historique = []; // la conversation en cours : { role: 'toi' | 'avatar', texte }
+    const MOTS_EMOTIONS = ['neutre', ...Object.keys(EMOTIONS)];
 
-    // Sépare l'émotion « [joie] » du texte, et retire ce qui ne doit pas être lu à voix haute
+    // Trie les balises de la réponse : [joie], [souvenir: …], [oubli: 3]
+    // et nettoie ce qui ne doit pas être lu à voix haute
     function decoder(brut) {
-      const trouve = brut.match(/^\s*\[([^\]]+)\]/);
-      const emotion = trouve
-        ? trouve[1].toLowerCase().normalize('NFD').replace(/\p{M}/gu, '').trim()
-        : 'neutre';
+      let emotion = null;
+      const nouveaux = [];
+      const oublis = [];
+      for (const [, contenu] of brut.matchAll(/\[([^\]]*)\]/g)) {
+        const balise = contenu.match(/^\s*(souvenir|oubli)\s*:\s*(.+)$/i);
+        if (balise) {
+          if (balise[1].toLowerCase() === 'souvenir') nouveaux.push(balise[2]);
+          else oublis.push(...(balise[2].match(/\d+/g) || []).map(Number));
+        } else if (!emotion && MOTS_EMOTIONS.includes(sansAccents(contenu))) {
+          emotion = sansAccents(contenu);
+        }
+      }
       const texte = brut
-        .replace(/\[[^\]]*\]/g, ' ')                        // balises d'émotion
-        .replace(/[*_#`~>]/g, '')                           // mise en forme
-        .replace(/\p{Extended_Pictographic}️?/gu, '')  // émojis
+        .replace(/\[[^\]]*\]/g, ' ')                          // toutes les balises
+        .replace(/[*_#`~>]/g, '')                             // mise en forme
+        .replace(/\p{Extended_Pictographic}️?/gu, '')    // émojis
         .replace(/\s+/g, ' ')
         .trim();
-      return { texte, emotion };
+      return { texte, emotion: emotion || 'neutre', nouveaux, oublis };
     }
 
     async function obtenirReponse(texte) {
@@ -478,13 +648,14 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
         return { texte: "Je n'ai pas encore de cerveau. Colle l'adresse de ton Worker dans CERVEAU_URL, en haut du fichier.", emotion: 'triste' };
       }
       historique.push({ role: 'toi', texte });
+      const carnet = souvenirs.slice(); // le carnet tel qu'envoyé (pour les numéros d'oubli)
       const controleur = new AbortController();
       const minuterie = setTimeout(() => controleur.abort(), 30000);
       try {
         const r = await fetch(CERVEAU_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ personnalite: personnalite(), messages: historique.slice(-20) }),
+          body: JSON.stringify({ personnalite: personnalite(carnet), messages: historique.slice(-20) }),
           signal: controleur.signal,
         });
         const donnees = await r.json().catch(() => ({}));
@@ -499,7 +670,10 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
         }
         historique.push({ role: 'avatar', texte: donnees.texte.trim() });
         if (historique.length > 40) historique.splice(0, historique.length - 40);
+        sauverConversation();
+
         const reponse = decoder(donnees.texte);
+        mettreAJourCarnet(carnet, reponse.oublis, reponse.nouveaux);
         return { texte: reponse.texte || '…', emotion: reponse.emotion };
       } catch (erreur) {
         console.error(erreur);
@@ -509,6 +683,95 @@ Exemple : [joie] Ah génial ! Et alors, ça s'est passé comment ?`;
         clearTimeout(minuterie);
       }
     }
+
+    function mettreAJourCarnet(carnet, oublis, nouveaux) {
+      let efface = 0;
+      for (const numero of oublis) {
+        const cible = carnet[numero - 1];
+        const index = cible ? souvenirs.indexOf(cible) : -1;
+        if (index >= 0) { souvenirs.splice(index, 1); efface++; }
+      }
+      let note = 0;
+      for (const texte of nouveaux) if (ajouterSouvenir(texte)) note++;
+      if (!efface && !note) return;
+      sauverSouvenirs();
+      afficherNote(note && efface ? 'Carnet mis à jour' : note ? 'Noté dans mon carnet' : 'Effacé de mon carnet');
+    }
+
+    // ================= LE CARNET (affichage) =================
+    const elNote = document.getElementById('note');
+    const elCarnet = document.getElementById('carnet');
+    const elListe = document.getElementById('liste-souvenirs');
+    document.getElementById('titre-carnet').textContent = `Ce que ${NOM_AVATAR} sait de toi`;
+
+    let minuterieNote = null;
+    function afficherNote(texte) {
+      clearTimeout(minuterieNote);
+      elNote.textContent = texte;
+      elNote.classList.add('visible');
+      minuterieNote = setTimeout(() => elNote.classList.remove('visible'), 2800);
+    }
+
+    function afficherCarnet() {
+      elListe.replaceChildren();
+      document.getElementById('aide-carnet').textContent = souvenirs.length
+        ? `${souvenirs.length} souvenir${souvenirs.length > 1 ? 's' : ''}, gardé${souvenirs.length > 1 ? 's' : ''} uniquement sur ce téléphone.`
+        : '';
+      if (!souvenirs.length) {
+        const vide = document.createElement('li');
+        vide.className = 'vide';
+        vide.textContent = `Rien pour l'instant. Raconte-lui des choses sur toi : ce qui compte, ${NOM_AVATAR} le notera ici.`;
+        elListe.append(vide);
+        return;
+      }
+      // Les plus récents en haut
+      for (const souvenir of [...souvenirs].reverse()) {
+        const li = document.createElement('li');
+        const texte = document.createElement('span');
+        texte.textContent = souvenir.texte;
+        const effacer = document.createElement('button');
+        effacer.type = 'button';
+        effacer.setAttribute('aria-label', 'Effacer ce souvenir');
+        effacer.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9z"/></svg>';
+        effacer.addEventListener('click', () => {
+          souvenirs = souvenirs.filter((s) => s !== souvenir);
+          sauverSouvenirs();
+          afficherCarnet();
+        });
+        li.append(texte, effacer);
+        elListe.append(li);
+      }
+    }
+
+    function ouvrirCarnet() {
+      afficherCarnet();
+      elCarnet.classList.add('ouvert');
+      elCarnet.setAttribute('aria-hidden', 'false');
+    }
+    function fermerCarnet() {
+      elCarnet.classList.remove('ouvert');
+      elCarnet.setAttribute('aria-hidden', 'true');
+    }
+    document.getElementById('ouvrir-carnet').addEventListener('click', ouvrirCarnet);
+    document.getElementById('fermer-carnet').addEventListener('click', fermerCarnet);
+    elCarnet.addEventListener('click', (e) => { if (e.target === elCarnet) fermerCarnet(); }); // toucher le fond ferme
+
+    document.getElementById('nouvelle-conversation').addEventListener('click', () => {
+      historique.length = 0;
+      ecartAvantConversation = null;
+      sauverConversation();
+      fermerCarnet();
+      afficherNote('Nouvelle conversation');
+    });
+    document.getElementById('tout-oublier').addEventListener('click', () => {
+      if (!confirm(`Effacer tous les souvenirs de ${NOM_AVATAR} et la conversation en cours ?`)) return;
+      souvenirs = [];
+      historique.length = 0;
+      ecartAvantConversation = null;
+      sauverSouvenirs();
+      sauverConversation();
+      afficherCarnet();
+    });
 
     // ================= ENVOI D'UN MESSAGE =================
     let occupe = false;
