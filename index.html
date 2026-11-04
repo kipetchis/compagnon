@@ -823,7 +823,9 @@ ${notes}`;
         if (!r.ok || !donnees.texte) {
           console.error('Réponse du Worker :', r.status, donnees);
           historique.pop();
-          return { texte: "Oups, mon cerveau a eu un petit bug. Tu peux répéter ?", emotion: 'surpris' };
+          // MODE DIAGNOSTIC : affiche le code d'erreur pour comprendre le bug (à retirer ensuite)
+          const detail = String(donnees.detail || donnees.raison || donnees.erreur || '').replace(/\s+/g, ' ').slice(0, 220);
+          return { texte: `Oups, petit bug (code ${r.status}). ${detail}`, emotion: 'surpris' };
         }
         historique.push({ role: 'avatar', texte: donnees.texte.trim() });
         if (historique.length > 40) historique.splice(0, historique.length - 40);
